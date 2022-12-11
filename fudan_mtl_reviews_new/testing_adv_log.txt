@@ -1,0 +1,9 @@
+================================================================================
+dataset:2007summer 	 error rate:0.5400
+dataset:2007summer 	 f1:0.6301
+dataset:2008spring 	 error rate:1.0000
+dataset:2008spring 	 f1:0.0000
+dataset:2008winter 	 error rate:0.5400
+dataset:2008winter 	 f1:0.6301
+mean error rate	0.6933
+mean f1 	0.4201

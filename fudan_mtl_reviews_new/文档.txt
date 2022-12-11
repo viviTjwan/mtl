@@ -1,0 +1,141 @@
+//tfrecord
+https://www.pythonf.cn/read/69791
+
+//运行代码
+from google.colab import drive
+drive.mount('/content/drive')
+//降版本
+!pip install tensorflow==1.15.0
+
+cd /content/drive/MyDrive/fudan_mtl_reviews
+
+【fudan.py】
+change1
+DATASETS = ['2007summer','2008spring','2008winter']
+
+change 2
+SUFFIX = ['.train.csv', '.test.csv', '.csv']
+
+#change -3
+DATA_DIR = "new-data"
+
+#change -4
+def _load_raw_data_from_file(filename, task_id):
+  data = []
+  with open(filename) as f:
+    # try:
+    for line in f:
+      segments = line.strip().split(',')
+      label = int(segments[0])
+      tokens = segments[1:]
+      tokens_2 = list()
+      for i in tokens:
+        if(i!=''):
+            tokens_2.append(int(float(i)))#只能加int 因为raw example的要求
+      example = Raw_Example(label, task_id, tokens_2)
+      data.append(example)
+    # except UnicodeDecodeError:
+    #   print(filename)
+    #   exit()
+  return data
+
+#change -5
+def _load_raw_data(dataset_name, task_id):
+  train_file = os.path.join(DATA_DIR, dataset_name+'.train.csv')
+  train_data = _load_raw_data_from_file(train_file, task_id)
+  test_file = os.path.join(DATA_DIR, dataset_name+'.test.csv')
+  test_data = _load_raw_data_from_file(test_file, task_id)
+  return train_data, test_data
+
+# change -10 整个函数删掉不用的参数 根据util里的函数
+def write_as_tfrecord(train_data, test_data, task_id):
+  '''convert the raw data to TFRecord format and write to disk
+  '''
+  dataset = DATASETS[task_id]
+  train_record_file = os.path.join(OUT_DIR, dataset+'.train.tfrecord')
+  test_record_file = os.path.join(OUT_DIR, dataset+'.test.tfrecord')
+
+  util.write_as_tfrecord(train_data, 
+                         train_record_file, 
+                         _build_sequence_example)
+  util.write_as_tfrecord(test_data, 
+                         test_record_file, 
+                         _build_sequence_example)
+
+  util._shuf_and_write(train_record_file)
+
+
+【main.py】
+# change -6
+def _build_vocab(all_data):
+    print('build vocab')
+    data = []
+    for task_data in all_data:
+      train_data, test_data = task_data
+      data.extend(train_data + test_data)
+    # change -6 注释 
+    # vocab = fudan.build_vocab(data)
+    # util.write_vocab(vocab)
+    # stat_length不确定能不能注释
+    util.stat_length(data)
+
+def _build_data(all_data):
+    print('build data')
+    # change -7 注释 获得词对应id的函数
+    # vocab2id = util.load_vocab2id()
+
+    for task_id, task_data in enumerate(all_data):
+      train_data, test_data = task_data
+      #change -11 删除对应参数
+      fudan.write_as_tfrecord(train_data, test_data, task_id)
+
+def _trim_embed():
+    print('trimming pretrained embeddings')
+    util.trim_embeddings(50)
+    # change -12注释掉embaddings300 报错没找到文件？
+    # util.trim_embeddings(300)
+
+
+
+【until.py】
+# change -9 删掉无用的参数
+def write_as_tfrecord(raw_data, filename, build_func):
+  '''convert the raw data to TFRecord format and write to disk
+
+  Args:
+    raw_data: a list of Raw_Example
+    vocab2id: dict<token, id>
+    filename: file to write in
+    max_len: int, pad or truncate sentence to max_len
+    build_func: function to convert Raw_Example to tf.train.SequenceExample
+  '''
+  writer = tf.python_io.TFRecordWriter(filename)
+  # text_writer = open(filename+'.debug.txt', 'w')
+  # change -7
+  # pad_id = vocab2id[PAD_WORD]
+  
+  for raw_example in raw_data:
+    raw_example = raw_example._asdict()
+    
+    # _write_text_for_debug(text_writer, raw_example, vocab2id)
+    
+    # change -8 注释掉word to id以及对句子的截断处理
+    # _map_tokens_to_ids(raw_example, vocab2id)
+    # _pad_or_truncate  (raw_example, max_len, pad_id)
+    
+    example = build_func(raw_example)
+    writer.write(example.SerializeToString())
+  writer.close()
+  # text_writer.close()
+  del raw_data
+
+【mtl-model.py】
+# change -14 改变任务数量
+TASK_NUM=3
+
+change -13
+def build_task_graph(self, data):
+    task_label, labels, sentence = data
+    #embedding_lookup是一种全连接层。把词的id转换成对应的向量
+    # change -13 修改后没有词向量
+    sentence = tf.nn.embedding_lookup(self.word_embed, sentence)
